@@ -18,14 +18,23 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ZIG_VERSION: 0.16.0
+      ZIG_SHA256: 70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
     steps:
     - uses: actions/checkout@v6
 
-    # Installed manually: mlugg/setup-zig still targets the deprecated Node.js 20
+    # Zig is installed manually (mlugg/setup-zig still targets the deprecated
+    # Node.js 20) and cached so it is only downloaded when the version changes
+    - name: Cache Zig
+      id: zig-cache
+      uses: actions/cache@v6
+      with:
+        path: ${{ runner.temp }}/zig
+        key: zig-${{ runner.os }}-${{ env.ZIG_VERSION }}-${{ env.ZIG_SHA256 }}
+
     - name: Install Zig
-      env:
-        ZIG_VERSION: 0.16.0
-        ZIG_SHA256: 70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00
+      if: steps.zig-cache.outputs.cache-hit != 'true'
       run: |
         FILE="zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
         # Official site first, then community mirrors; the checksum guards against bad downloads
@@ -44,7 +53,9 @@ jobs:
         mkdir -p "$RUNNER_TEMP/zig"
         tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
         rm zig.tar.xz
-        echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
+    - name: Add Zig to PATH
+      run: echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
 
     - name: Build
       run: |
